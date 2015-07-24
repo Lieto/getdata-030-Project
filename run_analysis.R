@@ -1,33 +1,6 @@
 library(dplyr)
 
-ProcessVariableName <-function(originalName) {
-  
-  name = as.character(originalName)
-  # Take first character and create "Time" of "Frequency" string
-  first = substring(name, 1, 1)
-  rest = substring(name, 2, nchar(name))
-  if (first == "t") {
-    first = "Time"
-  }
-  else {
-    first = "Frequency"
-  }
-  
-  # Split rest on "-" chars to three strings
-  strings = strsplit(rest, split = "-", fixed = TRUE)
-  # Change mean() to Mean and std() to Std
-  if (strings[[1]][2] == "mean()") {
-    strings[[1]][2] = "Mean"
-  }
-  else if (strings[[1]][2] == "std()") {
-    strings[[1]][2] = "Std"
-  }
-  
-  # Change order
-  returnString = paste(first, strings[[1]][1], strings[[1]][3] , strings[[1]][2], sep = " ")
-  return(returnString)
-
-}
+## Prep data: download files, load ativity and feature labels
 
 # Check if we have data directory, create if not
 if (!file.exists("data")) {
@@ -44,22 +17,20 @@ if (!file.exists("./data/dataset.zip")) {
 # Unzip dataset
 unzip("./data/dataset.zip", exdir = "./data")
 
-# Read activity labels from file
+# Read activity labels from file "activity_labels.txt"
 activityLabels = read.table("./data/UCI HAR Dataset/activity_labels.txt")
 
-# Read feature labels from file
+# Read feature labels from file "features.txt"
 features = read.table("./data/UCI HAR Dataset/features.txt")
 
 # Find features with mean and sd
-meanIndexes = features[(grep("mean()", features$V2, fixed=TRUE)), ]
-stdIndexes = features[(grep("std()", features$V2, fixed=TRUE)), ]
-indexes = rbind(meanIndexes, stdIndexes)
-#indexes = indexes[sort(indexes$V1), ]
-indexes = indexes[with(indexes, order(indexes$V1)), ]
-#i = sort(indexes$V1)
+indexes = features[(grepl("mean()", features$V2, fixed = TRUE) |
+                     grepl("std()", features$V2, fixed = TRUE)), ]
 
 
-# 1 Merge the training and the test sets to create one data set
+
+
+## 1) Merge the training and the test sets to create one data set
 
 # Read test and train sets (X and y and subject files)
 test.X = read.table("./data/UCI HAR Dataset/test/X_test.txt")
@@ -75,26 +46,27 @@ data.X = rbind(test.X, train.X)
 names(data.X) = features$V2
 data.y = rbind(test.y, train.y)
 names(data.y) = c("Activity")
-# Change the activity numbers to activity names
+
+## 3) Change the activity numbers to activity names
 data.y = apply(data.y, 1, function(x) as.character(activityLabels$V2[x] ))
 
-# Extract mean and std features from X
+## 2) Extract mean and std features from X
 data.X = data.X[ , unlist(indexes$V1)]
 
 # Combine subject, features and activities into a single data frame
 dataset = data.frame(data.subject, data.X, data.y)
-# Define names for columns
+
+## 4) Define names for columns
 data.labels = c("SubjectId")
 
-#features_tmp = apply(indexes$V2, fun = ProcessVariableName)
 data.labels = c(data.labels, as.character(indexes$V2))
 data.labels = c(data.labels, "Activity")
 
-#data.labels = c("SubjectId", "Mean", "Std", "Activity")
-
 names(dataset) = data.labels
 
-# 5
+## 5 Create independent tidy data set, use ddply to calc mean values for selected
+# variables grouped by subject and activity
+
 library(plyr)
 library(dplyr)
 
